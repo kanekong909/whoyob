@@ -19,8 +19,9 @@ const cards = {
     if (!el) return;
     if (!this.list.length) {
       el.innerHTML = `<div class="empty-state">
-        <p>No hay tarjetas aún</p>
-        <button class="btn-primary" onclick="cards.showForm()">Crear primera tarjeta</button>
+        <div class="empty-state-icon">🗒️</div>
+        <p>No hay tarjetas aún.<br>Toca el botón + para crear la primera.</p>
+        <button class="btn-primary" onclick="cards.showForm()">Nueva tarjeta</button>
       </div>`;
       return;
     }

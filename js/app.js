@@ -14,7 +14,12 @@ const app = {
       this.showView('auth');
       return;
     }
-    document.getElementById('user-name').textContent = auth.user?.name || '';
+    const name = auth.user?.name || '';
+    document.getElementById('user-name').textContent = name;
+    const avatarEl = document.getElementById('sidebar-avatar');
+    const userNameEl = document.getElementById('sidebar-user-name');
+    if (avatarEl) avatarEl.textContent = name.charAt(0).toUpperCase() || '?';
+    if (userNameEl) userNameEl.textContent = name;
     await workspaces.load();
   },
 

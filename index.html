@@ -15,6 +15,7 @@
 <div id="view-auth" class="view">
   <div class="auth-card">
     <div class="auth-logo">
+      <div class="auth-logo-icon">📋</div>
       <h1>WorkNotes</h1>
       <p>Tu guía de trabajo siempre a mano</p>
     </div>
@@ -56,7 +57,7 @@
 <!-- ── WORKSPACES VACÍO ──────────────────────────────────────────── -->
 <div id="view-workspaces" class="view">
   <div class="ws-empty">
-    <div style="font-size:52px;margin-bottom:16px">📋</div>
+    <div class="ws-empty-icon">📋</div>
     <h2>Tu primer espacio</h2>
     <p>Crea un espacio de trabajo para empezar a guardar información de tu trabajo.</p>
     <button class="btn-primary" onclick="workspaces.showCreate()">Crear espacio de trabajo</button>
@@ -100,8 +101,14 @@
 <div id="sidebar-overlay" onclick="app.closeSidebar()"></div>
 <nav id="sidebar">
   <div class="sidebar-header">
-    <div class="sidebar-logo">WorkNotes</div>
-    <div class="sidebar-user" id="sidebar-user"></div>
+    <div class="sidebar-brand">
+      <div class="sidebar-brand-icon">📋</div>
+      <span class="sidebar-logo">WorkNotes</span>
+    </div>
+    <div class="sidebar-user">
+      <div class="sidebar-avatar" id="sidebar-avatar">?</div>
+      <span class="sidebar-user-name" id="sidebar-user-name"></span>
+    </div>
   </div>
   <div class="sidebar-body">
     <div class="sidebar-section-title">Espacios de trabajo</div>

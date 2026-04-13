@@ -133,6 +133,17 @@ function showAuthTab(tab) {
   document.querySelector(`.auth-tab[data-tab="${tab}"]`).classList.add('active');
 }
 
+function togglePassword(inputId, btn) {
+  const input = document.getElementById(inputId);
+  if (input.type === 'password') {
+    input.type = 'text';
+    btn.textContent = '🙈';
+  } else {
+    input.type = 'password';
+    btn.textContent = '👁';
+  }
+}
+
 window.addEventListener('DOMContentLoaded', () => app.init());
 window.app = app;
 window.esc = esc;

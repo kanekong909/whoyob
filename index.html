@@ -31,7 +31,10 @@
       </div>
       <div class="field">
         <label>Contraseña</label>
-        <input id="login-pass" type="password" placeholder="••••••" required autocomplete="current-password">
+        <div class="password-field">
+          <input id="login-pass" type="password" placeholder="••••••" required autocomplete="current-password">
+          <button type="button" class="password-toggle" onclick="togglePassword('login-pass', this)" tabindex="-1">👁</button>
+        </div>
       </div>
       <button id="login-btn" class="btn-primary" type="submit">Entrar</button>
     </form>
@@ -47,7 +50,10 @@
       </div>
       <div class="field">
         <label>Contraseña</label>
-        <input id="reg-pass" type="password" placeholder="Mínimo 6 caracteres" required minlength="6" autocomplete="new-password">
+        <div class="password-field">
+          <input id="reg-pass" type="password" placeholder="Mínimo 6 caracteres" required minlength="6" autocomplete="new-password">
+          <button type="button" class="password-toggle" onclick="togglePassword('reg-pass', this)" tabindex="-1">👁</button>
+        </div>
       </div>
       <button id="reg-btn" class="btn-primary" type="submit">Crear cuenta</button>
     </form>
@@ -160,12 +166,19 @@
 
       <div class="field">
         <label>Foto</label>
-        <div class="photo-upload-area" onclick="document.getElementById('card-form-photo').click()">
-          <input id="card-form-photo" type="file" accept="image/*" capture="environment"
-                 onchange="cards.previewPhoto(this)">
-          <span class="photo-upload-label">📷 Tomar foto o elegir de galería</span>
-          <div id="card-photo-preview"></div>
+        <div class="photo-options">
+          <label class="photo-option-btn">
+            <input type="file" accept="image/*" capture="environment" id="card-form-photo-camera" onchange="cards.previewPhoto(this)">
+            <span>📷</span>
+            <span>Tomar foto</span>
+          </label>
+          <label class="photo-option-btn">
+            <input type="file" accept="image/*" id="card-form-photo-gallery" onchange="cards.previewPhoto(this)">
+            <span>🖼️</span>
+            <span>Galería</span>
+          </label>
         </div>
+        <div id="card-photo-preview"></div>
       </div>
 
       <div class="modal-actions">

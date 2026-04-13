@@ -51,9 +51,10 @@ const cards = {
   },
 
   showForm(cardData) {
-    const modal = document.getElementById('modal-card');
-    const form  = document.getElementById('card-form');
+    const modal  = document.getElementById('modal-card');
+    const form   = document.getElementById('card-form');
     form.reset();
+    this._photoFile = null;
     document.getElementById('card-photo-preview').innerHTML = '';
     document.getElementById('card-id').value = cardData?.id || '';
     document.getElementById('card-form-title').value = cardData?.title || '';
@@ -85,6 +86,7 @@ const cards = {
   previewPhoto(input) {
     const file = input.files[0];
     if (!file) return;
+    this._photoFile = file;
     const reader = new FileReader();
     reader.onload = e => {
       document.getElementById('card-photo-preview').innerHTML =
@@ -113,8 +115,7 @@ const cards = {
       .split(',').map(s => s.trim()).filter(Boolean);
     fd.append('tags', JSON.stringify(tags));
 
-    const photoInput = document.getElementById('card-form-photo');
-    if (photoInput.files[0]) fd.append('photo', photoInput.files[0]);
+    if (this._photoFile) fd.append('photo', this._photoFile);
 
     const btn = document.getElementById('card-submit-btn');
     btn.disabled = true;

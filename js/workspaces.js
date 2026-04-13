@@ -1,4 +1,4 @@
-const workspaces = {
+window.workspaces = {
   current: null,
   list: [],
   categories: [],
@@ -124,4 +124,3 @@ const workspaces = {
   }
 };
 
-window.workspaces = workspaces;

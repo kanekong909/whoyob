@@ -1,4 +1,4 @@
-const auth = {
+window.auth = {
   user: null,
 
   init() {
@@ -40,5 +40,3 @@ const auth = {
     return !!localStorage.getItem('wn_token');
   }
 };
-
-window.auth = auth;

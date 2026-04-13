@@ -1,168 +1,190 @@
-const router     = require('express').Router();
-const multer     = require('multer');
-const cloudinary = require('cloudinary').v2;
-const { CloudinaryStorage } = require('multer-storage-cloudinary');
-const db   = require('../db');
-const auth = require('./middleware');
+window.cards = {
+  list: [],
+  searchTimer: null,
 
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key:    process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
-
-const storage = new CloudinaryStorage({
-  cloudinary,
-  params: {
-    folder:          'worknotes',
-    allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'gif'],
-    transformation:  [{ width: 1200, crop: 'limit', quality: 'auto' }],
-  },
-});
-
-const upload = multer({ storage, limits: { fileSize: 8 * 1024 * 1024 } });
-
-router.use(auth);
-
-const parseJson = (str) => {
-  try { return str ? JSON.parse(str) : []; }
-  catch { return []; }
-};
-
-const destroyPhoto = (url) => {
-  if (!url) return;
-  const parts   = url.split('/');
-  const file    = parts[parts.length - 1].replace(/\.[^.]+$/, '');
-  const folder  = parts[parts.length - 2];
-  const publicId = `${folder}/${file}`;
-  cloudinary.uploader.destroy(publicId).catch(() => {});
-};
-
-// GET /cards
-router.get('/', async (req, res) => {
-  const { workspace_id, category_id, q } = req.query;
-  if (!workspace_id) return res.status(400).json({ error: 'workspace_id requerido' });
-  try {
-    const [owns] = await db.query(
-      'SELECT id FROM workspaces WHERE id = ? AND user_id = ?',
-      [workspace_id, req.user.id]
-    );
-    if (!owns.length) return res.status(403).json({ error: 'Sin acceso' });
-
-    let sql  = `SELECT c.*, cat.name AS category_name, cat.color AS category_color
-                FROM cards c LEFT JOIN categories cat ON cat.id = c.category_id
-                WHERE c.workspace_id = ?`;
-    const args = [workspace_id];
-    if (category_id) { sql += ' AND c.category_id = ?'; args.push(category_id); }
-    if (q && q.trim()) {
-      sql += ' AND MATCH(c.title, c.description, c.ingredients, c.tags) AGAINST(? IN BOOLEAN MODE)';
-      args.push(q.trim() + '*');
+  async load(q) {
+    const wsId  = workspaces.current?.id;
+    const catId = workspaces.currentCategory;
+    if (!wsId) return;
+    try {
+      this.list = await api.getCards(wsId, catId, q);
+      this.render();
+    } catch(err) {
+      app.toast(err.message, 'error');
     }
-    sql += ' ORDER BY c.updated_at DESC';
+  },
 
-    const [rows] = await db.query(sql, args);
-    res.json(rows.map(r => ({ ...r, ingredients: parseJson(r.ingredients), tags: parseJson(r.tags) })));
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Error al obtener tarjetas' });
+  render() {
+    const el = document.getElementById('cards-grid');
+    if (!el) return;
+    if (!this.list.length) {
+      el.innerHTML = `<div class="empty-state">
+        <div class="empty-state-icon">🗒️</div>
+        <p>No hay tarjetas aún.<br>Toca el botón + para crear la primera.</p>
+        <button class="btn-primary" onclick="cards.showForm()">Nueva tarjeta</button>
+      </div>`;
+      return;
+    }
+    el.innerHTML = this.list.map(c => this.cardHTML(c)).join('');
+  },
+
+  cardHTML(c) {
+    const photo = c.photo_url
+      ? `<div class="card-photo"><img src="${c.photo_url}" alt="${esc(c.title)}" loading="lazy" onerror="this.parentElement.style.display='none'"></div>`
+      : '';
+    const tags = (c.tags || []).map(t => `<span class="tag">${esc(t)}</span>`).join('');
+    const catBadge = c.category_name
+      ? `<span class="cat-badge" style="background:${c.category_color}22;color:${c.category_color}">${esc(c.category_name)}</span>` : '';
+    const ings = c.ingredients?.length
+      ? `<div class="card-ings"><strong>Ingredientes:</strong> ${c.ingredients.map(i => esc(i)).join(', ')}</div>` : '';
+
+    return `<div class="card-item" onclick="cards.showDetail('${c.id}')">
+      ${photo}
+      <div class="card-body">
+        <div class="card-meta">${catBadge}</div>
+        <h3 class="card-title">${esc(c.title)}</h3>
+        ${c.description ? `<p class="card-desc">${esc(c.description)}</p>` : ''}
+        ${ings}
+        ${tags ? `<div class="card-tags">${tags}</div>` : ''}
+      </div>
+    </div>`;
+  },
+
+  showForm(cardData) {
+    const modal  = document.getElementById('modal-card');
+    const form   = document.getElementById('card-form');
+    form.reset();
+    this._photoFile = null;
+    document.getElementById('card-photo-preview').innerHTML = '';
+    document.getElementById('card-id').value = cardData?.id || '';
+    document.getElementById('card-form-title').value = cardData?.title || '';
+    document.getElementById('card-form-desc').value  = cardData?.description || '';
+    document.getElementById('card-form-ings').value  = (cardData?.ingredients || []).join('\n');
+    document.getElementById('card-form-tags').value  = (cardData?.tags || []).join(', ');
+
+    // Categorías en el select
+    const sel = document.getElementById('card-form-category');
+    sel.innerHTML = '<option value="">Sin categoría</option>' +
+      workspaces.categories.map(c =>
+        `<option value="${c.id}" ${cardData?.category_id === c.id ? 'selected' : ''}>${esc(c.name)}</option>`
+      ).join('');
+
+    if (cardData?.photo_url) {
+      document.getElementById('card-photo-preview').innerHTML =
+        `<img src="${cardData.photo_url}" class="photo-thumb">`;
+    }
+
+    document.getElementById('modal-card-title').textContent = cardData ? 'Editar tarjeta' : 'Nueva tarjeta';
+    modal.classList.add('open');
+    document.getElementById('card-form-title').focus();
+  },
+
+  hideForm() {
+    document.getElementById('modal-card').classList.remove('open');
+  },
+
+  previewPhoto(input) {
+    const file = input.files[0];
+    if (!file) return;
+    this._photoFile = file;
+    const reader = new FileReader();
+    reader.onload = e => {
+      document.getElementById('card-photo-preview').innerHTML =
+        `<img src="${e.target.result}" class="photo-thumb">`;
+    };
+    reader.readAsDataURL(file);
+  },
+
+  async submitForm(e) {
+    e.preventDefault();
+    const id    = document.getElementById('card-id').value;
+    const title = document.getElementById('card-form-title').value.trim();
+    if (!title) return;
+
+    const fd = new FormData();
+    fd.append('workspace_id', workspaces.current.id);
+    fd.append('title',       title);
+    fd.append('description', document.getElementById('card-form-desc').value.trim());
+    fd.append('category_id', document.getElementById('card-form-category').value);
+
+    const ings = document.getElementById('card-form-ings').value
+      .split('\n').map(s => s.trim()).filter(Boolean);
+    fd.append('ingredients', JSON.stringify(ings));
+
+    const tags = document.getElementById('card-form-tags').value
+      .split(',').map(s => s.trim()).filter(Boolean);
+    fd.append('tags', JSON.stringify(tags));
+
+    if (this._photoFile) fd.append('photo', this._photoFile);
+
+    const btn = document.getElementById('card-submit-btn');
+    btn.disabled = true;
+    btn.textContent = 'Guardando...';
+
+    try {
+      if (id) {
+        await api.updateCard(id, fd);
+      } else {
+        await api.createCard(fd);
+      }
+      this.hideForm();
+      await this.load();
+      app.toast('Tarjeta guardada', 'success');
+    } catch(err) {
+      app.toast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Guardar';
+    }
+  },
+
+  async showDetail(id) {
+    try {
+      const card = await api.getCard(id);
+      const modal = document.getElementById('modal-detail');
+      const photo = card.photo_url
+        ? `<img src="${card.photo_url}" class="detail-photo" onerror="this.style.display='none'">` : '';
+      const ings = card.ingredients?.length
+        ? `<div class="detail-section"><h4>Ingredientes</h4><ul>${card.ingredients.map(i => `<li>${esc(i)}</li>`).join('')}</ul></div>` : '';
+      const tags = card.tags?.length
+        ? `<div class="detail-tags">${card.tags.map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div>` : '';
+      const catBadge = card.category_name
+        ? `<span class="cat-badge" style="background:${card.category_color}22;color:${card.category_color}">${esc(card.category_name)}</span>` : '';
+
+      document.getElementById('detail-content').innerHTML = `
+        ${photo}
+        <div class="detail-body">
+          ${catBadge}
+          <h2>${esc(card.title)}</h2>
+          ${card.description ? `<p class="detail-desc">${esc(card.description)}</p>` : ''}
+          ${ings}
+          ${tags}
+        </div>
+      `;
+      document.getElementById('detail-edit-btn').onclick  = () => { this.hideDetail(); this.showForm(card); };
+      document.getElementById('detail-del-btn').onclick   = () => this.deleteCard(card.id, card.title);
+      modal.classList.add('open');
+    } catch(err) {
+      app.toast(err.message, 'error');
+    }
+  },
+
+  hideDetail() {
+    document.getElementById('modal-detail').classList.remove('open');
+  },
+
+  async deleteCard(id, title) {
+    const ok = await app.confirm(`¿Eliminar "${title}"?`);
+    if (!ok) return;
+    await api.deleteCard(id);
+    this.hideDetail();
+    await this.load();
+    app.toast('Tarjeta eliminada', 'success');
+  },
+
+  onSearch(value) {
+    clearTimeout(this.searchTimer);
+    this.searchTimer = setTimeout(() => this.load(value), 350);
   }
-});
+};
 
-// GET /cards/:id
-router.get('/:id', async (req, res) => {
-  try {
-    const [rows] = await db.query(
-      `SELECT c.*, cat.name AS category_name, cat.color AS category_color
-       FROM cards c LEFT JOIN categories cat ON cat.id = c.category_id
-       JOIN workspaces w ON w.id = c.workspace_id
-       WHERE c.id = ? AND w.user_id = ?`,
-      [req.params.id, req.user.id]
-    );
-    if (!rows.length) return res.status(404).json({ error: 'Tarjeta no encontrada' });
-    res.json({ ...rows[0], ingredients: parseJson(rows[0].ingredients), tags: parseJson(rows[0].tags) });
-  } catch (err) {
-    res.status(500).json({ error: 'Error al obtener tarjeta' });
-  }
-});
-
-// POST /cards
-router.post('/', upload.single('photo'), async (req, res) => {
-  const { workspace_id, category_id, title, description, ingredients, tags } = req.body;
-  if (!workspace_id || !title)
-    return res.status(400).json({ error: 'workspace_id y title son requeridos' });
-  try {
-    const [owns] = await db.query(
-      'SELECT id FROM workspaces WHERE id = ? AND user_id = ?',
-      [workspace_id, req.user.id]
-    );
-    if (!owns.length) return res.status(403).json({ error: 'Sin acceso' });
-
-    const photo_url = req.file ? req.file.path : null;
-    const ingStr    = Array.isArray(ingredients) ? JSON.stringify(ingredients) : (ingredients || '[]');
-    const tagsStr   = Array.isArray(tags)        ? JSON.stringify(tags)        : (tags        || '[]');
-
-    await db.query(
-      `INSERT INTO cards (workspace_id, category_id, title, description, ingredients, tags, photo_url)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [workspace_id, category_id || null, title.trim(), description || null, ingStr, tagsStr, photo_url]
-    );
-    const [rows] = await db.query(
-      'SELECT * FROM cards WHERE workspace_id = ? ORDER BY created_at DESC LIMIT 1',
-      [workspace_id]
-    );
-    res.status(201).json({ ...rows[0], ingredients: parseJson(rows[0].ingredients), tags: parseJson(rows[0].tags) });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Error al crear tarjeta' });
-  }
-});
-
-// PUT /cards/:id
-router.put('/:id', upload.single('photo'), async (req, res) => {
-  const { title, description, ingredients, tags, category_id } = req.body;
-  try {
-    const [rows] = await db.query(
-      'SELECT c.* FROM cards c JOIN workspaces w ON w.id = c.workspace_id WHERE c.id = ? AND w.user_id = ?',
-      [req.params.id, req.user.id]
-    );
-    if (!rows.length) return res.status(404).json({ error: 'No encontrado' });
-    const old = rows[0];
-
-    let photo_url = old.photo_url;
-    if (req.file)                          { destroyPhoto(old.photo_url); photo_url = req.file.path; }
-    if (req.body.remove_photo === 'true')  { destroyPhoto(old.photo_url); photo_url = null; }
-
-    const ingStr  = Array.isArray(ingredients) ? JSON.stringify(ingredients) : (ingredients || old.ingredients);
-    const tagsStr = Array.isArray(tags)        ? JSON.stringify(tags)        : (tags        || old.tags);
-
-    await db.query(
-      `UPDATE cards SET title=?, description=?, ingredients=?, tags=?, category_id=?, photo_url=? WHERE id=?`,
-      [title || old.title, description !== undefined ? description : old.description,
-       ingStr, tagsStr, category_id !== undefined ? (category_id || null) : old.category_id,
-       photo_url, req.params.id]
-    );
-    const [updated] = await db.query('SELECT * FROM cards WHERE id = ?', [req.params.id]);
-    res.json({ ...updated[0], ingredients: parseJson(updated[0].ingredients), tags: parseJson(updated[0].tags) });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Error al actualizar tarjeta' });
-  }
-});
-
-// DELETE /cards/:id
-router.delete('/:id', async (req, res) => {
-  try {
-    const [rows] = await db.query(
-      'SELECT c.* FROM cards c JOIN workspaces w ON w.id = c.workspace_id WHERE c.id = ? AND w.user_id = ?',
-      [req.params.id, req.user.id]
-    );
-    if (!rows.length) return res.status(404).json({ error: 'No encontrado' });
-    destroyPhoto(rows[0].photo_url);
-    await db.query('DELETE FROM cards WHERE id = ?', [req.params.id]);
-    res.json({ ok: true });
-  } catch (err) {
-    res.status(500).json({ error: 'Error al eliminar tarjeta' });
-  }
-});
-
-module.exports = router;

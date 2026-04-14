@@ -118,6 +118,24 @@ router.post('/:id/categories', async (req, res) => {
   }
 });
 
+// PUT /workspaces/:wid/categories/:cid
+router.put('/:wid/categories/:cid', async (req, res) => {
+  const { name, color } = req.body;
+  if (!name) return res.status(400).json({ error: 'Nombre requerido' });
+  try {
+    const [owns] = await db.query('SELECT id FROM workspaces WHERE id = ? AND user_id = ?', [req.params.wid, req.user.id]);
+    if (!owns.length) return res.status(404).json({ error: 'No encontrado' });
+    await db.query(
+      'UPDATE categories SET name = ?, color = ? WHERE id = ? AND workspace_id = ?',
+      [name.trim(), color, req.params.cid, req.params.wid]
+    );
+    const [rows] = await db.query('SELECT * FROM categories WHERE id = ?', [req.params.cid]);
+    res.json(rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: 'Error al actualizar categoría' });
+  }
+});
+
 // DELETE /workspaces/:wid/categories/:cid
 router.delete('/:wid/categories/:cid', async (req, res) => {
   try {

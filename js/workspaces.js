@@ -59,14 +59,74 @@ window.workspaces = {
       <button class="cat-tab ${!this.currentCategory ? 'active' : ''}"
               onclick="workspaces.filterCategory(null)">Todas</button>
       ${this.categories.map(c => `
-        <button class="cat-tab ${this.currentCategory === c.id ? 'active' : ''}"
-                style="--cat-color: ${c.color}"
-                onclick="workspaces.filterCategory('${c.id}')">
-          ${esc(c.name)}
-        </button>
+        <div class="cat-tab-wrap">
+          <button class="cat-tab ${this.currentCategory === c.id ? 'active' : ''}"
+                  onclick="workspaces.filterCategory('${c.id}')">
+            <span class="cat-dot" style="background:${c.color}"></span>
+            ${esc(c.name)}
+          </button>
+          <button class="cat-options-btn" onclick="workspaces.showCategoryMenu(event, '${c.id}', '${esc(c.name)}', '${c.color}')" title="Opciones">⋯</button>
+        </div>
       `).join('')}
       <button class="cat-tab cat-add" onclick="workspaces.showAddCategory()">+</button>
     `;
+  },
+
+  showCategoryMenu(e, catId, catName, catColor) {
+    e.stopPropagation();
+    // Cerrar cualquier menú abierto
+    document.querySelectorAll('.cat-menu').forEach(m => m.remove());
+
+    const menu = document.createElement('div');
+    menu.className = 'cat-menu';
+    menu.innerHTML = `
+      <button onclick="workspaces.editCategory('${catId}', '${catName}', '${catColor}')">
+        <img src="assets/icons/edit.svg" alt="Editar" class="icon"> Editar
+      </button>
+      <button class="danger" onclick="workspaces.deleteCategory('${catId}', '${catName}')">
+        <img src="assets/icons/delete.svg" alt="Eliminar" class="icon"> Eliminar
+      </button>
+    `;
+
+    // Posicionar debajo del botón
+    const rect = e.currentTarget.getBoundingClientRect();
+    menu.style.top  = (rect.bottom + 6) + 'px';
+    menu.style.left = (rect.left - 80) + 'px';
+    document.body.appendChild(menu);
+
+    // Cerrar al click fuera
+    setTimeout(() => {
+      document.addEventListener('click', () => menu.remove(), { once: true });
+    }, 0);
+  },
+
+  async editCategory(catId, currentName, currentColor) {
+    document.querySelectorAll('.cat-menu').forEach(m => m.remove());
+    const name = await app.prompt('Editar categoría', currentName);
+    if (!name || name === currentName) return;
+    try {
+      await api.updateCategory(this.current.id, catId, { name, color: currentColor });
+      if (this.currentCategory === catId) this.currentCategory = catId;
+      await this.loadCategories();
+      app.toast('Categoría actualizada', 'success');
+    } catch(err) {
+      app.toast(err.message, 'error');
+    }
+  },
+
+  async deleteCategory(catId, catName) {
+    document.querySelectorAll('.cat-menu').forEach(m => m.remove());
+    const ok = await app.confirm(`¿Eliminar categoría "${catName}"? Las tarjetas no se borran.`);
+    if (!ok) return;
+    try {
+      await api.deleteCategory(this.current.id, catId);
+      if (this.currentCategory === catId) this.currentCategory = null;
+      await this.loadCategories();
+      await cards.load();
+      app.toast('Categoría eliminada', 'success');
+    } catch(err) {
+      app.toast(err.message, 'error');
+    }
   },
 
   filterCategory(catId) {

@@ -32,6 +32,7 @@ const api = {
   // Categories
   getCategories:   (wsId)          => request('GET',    `/workspaces/${wsId}/categories`),
   createCategory:  (wsId, data)    => request('POST',   `/workspaces/${wsId}/categories`, data),
+  updateCategory:  (wsId, catId, data) => request('PUT', `/workspaces/${wsId}/categories/${catId}`, data),
   deleteCategory:  (wsId, catId)   => request('DELETE', `/workspaces/${wsId}/categories/${catId}`),
 
   // Cards

@@ -201,12 +201,41 @@
     <div id="detail-content"></div>
     <div class="detail-actions">
       <button id="detail-edit-btn" class="btn-ghost">
-        <img src="assets/icons/edit.svg" alt="Editar" class="icon"> Editar
+        <img src="assets/icons/edit.svg" alt="Editar"> Editar
       </button>
       <button id="detail-del-btn"  class="btn-danger">
-        <img src="assets/icons/delete.svg" alt="Eliminar" class="icon"> Eliminar
+        <img src="assets/icons/delete.svg" alt="Eliminar"> Eliminar
       </button>
     </div>
+  </div>
+</div>
+
+<!-- ── MODAL: Editar espacio de trabajo ──────────────────────────── -->
+<div id="modal-workspace-edit" class="modal-overlay" onclick="if(event.target===this)workspaces.hideEdit()">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Editar espacio de trabajo</h2>
+      <button class="modal-close" onclick="workspaces.hideEdit()">×</button>
+    </div>
+    <form class="modal-form" onsubmit="workspaces.submitEdit(event)">
+      <div class="field">
+        <label>Ícono (emoji)</label>
+        <div class="emoji-picker-row" id="emoji-suggestions"></div>
+        <input id="ws-edit-icon" type="text" placeholder="📁" maxlength="4">
+      </div>
+      <div class="field">
+        <label>Nombre *</label>
+        <input id="ws-edit-name" type="text" required>
+      </div>
+      <div class="field">
+        <label>Descripción</label>
+        <input id="ws-edit-desc" type="text" placeholder="Opcional">
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn-ghost" onclick="workspaces.hideEdit()">Cancelar</button>
+        <button type="submit" class="btn-primary">Guardar</button>
+      </div>
+    </form>
   </div>
 </div>
 

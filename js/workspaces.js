@@ -29,6 +29,9 @@ window.workspaces = {
           <span class="ws-name">${esc(ws.name)}</span>
           <span class="ws-count">${ws.card_count || 0} tarjetas</span>
         </div>
+        <button class="ws-edit-btn" onclick="event.stopPropagation(); workspaces.showEdit(${JSON.stringify(ws).replace(/"/g, '&quot;')})" title="Editar">
+          <img src="assets/icons/editv2.svg" alt="Editar" class="icon">
+        </button>
       </div>
     `).join('');
   },
@@ -141,6 +144,55 @@ window.workspaces = {
     const color = '#' + Math.floor(Math.random()*0xffffff).toString(16).padStart(6,'0');
     await api.createCategory(this.current.id, { name, color });
     await this.loadCategories();
+  },
+
+  showEdit(ws) {
+    document.getElementById('ws-edit-name').value = ws.name || '';
+    document.getElementById('ws-edit-desc').value = ws.description || '';
+    document.getElementById('ws-edit-icon').value = ws.icon || '📁';
+    this._editingWs = ws;
+
+    // Sugerencias de emojis rápidos
+    const emojis = ['📁','💼','🍽️','☕','🏥','🛒','📚','🔧','🎨','💻','🏋️','✈️','🌿','🎵','📦','🏠','⚽','🧪','👔','🚗'];
+    const row = document.getElementById('emoji-suggestions');
+    row.innerHTML = emojis.map(e =>
+      `<button type="button" class="emoji-opt" onclick="document.getElementById('ws-edit-icon').value='${e}'">${e}</button>`
+    ).join('');
+
+    document.getElementById('modal-workspace-edit').classList.add('open');
+    document.getElementById('ws-edit-name').focus();
+  },
+
+  hideEdit() {
+    document.getElementById('modal-workspace-edit').classList.remove('open');
+    this._editingWs = null;
+  },
+
+  async submitEdit(e) {
+    e.preventDefault();
+    const ws   = this._editingWs;
+    if (!ws) return;
+    const name        = document.getElementById('ws-edit-name').value.trim();
+    const description = document.getElementById('ws-edit-desc').value.trim();
+    const icon        = document.getElementById('ws-edit-icon').value.trim() || '📁';
+    if (!name) return;
+    try {
+      const updated = await api.updateWorkspace(ws.id, { name, description, icon });
+      // Actualizar en la lista local
+      const idx = this.list.findIndex(w => w.id === ws.id);
+      if (idx !== -1) this.list[idx] = { ...this.list[idx], ...updated };
+      // Si es el actual, actualizar topbar
+      if (this.current?.id === ws.id) {
+        this.current = { ...this.current, ...updated };
+        document.getElementById('ws-title').textContent        = updated.name;
+        document.getElementById('ws-icon-display').textContent = updated.icon || '📁';
+      }
+      this.renderList();
+      this.hideEdit();
+      app.toast('Espacio actualizado', 'success');
+    } catch(err) {
+      app.toast(err.message, 'error');
+    }
   },
 
   showCreate() {
